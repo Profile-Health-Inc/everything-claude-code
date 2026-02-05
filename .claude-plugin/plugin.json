@@ -32,6 +32,8 @@
     "./agents/e2e-runner.md",
     "./agents/go-build-resolver.md",
     "./agents/go-reviewer.md",
+    "./agents/optimizer-planner.md",
+    "./agents/optimizer.md",
     "./agents/planner.md",
     "./agents/python-reviewer.md",
     "./agents/refactor-cleaner.md",
