@@ -163,6 +163,10 @@ everything-claude-code/
 |   |-- doc-updater.md       # Documentation sync
 |   |-- go-reviewer.md       # Go code review (NEW)
 |   |-- go-build-resolver.md # Go build error resolution (NEW)
+|   |-- repo-optimizer.md          # Whole-repo optimization (NEW)
+|   |-- repo-optimizer-planner.md  # Repo optimization planning (NEW)
+|   |-- nextflow-optimizer.md          # Nextflow DSL2 optimization (NEW)
+|   |-- nextflow-optimizer-planner.md  # Nextflow optimization planning (NEW)
 |
 |-- skills/           # Workflow definitions and domain knowledge
 |   |-- coding-standards/           # Language best practices
@@ -198,6 +202,8 @@ everything-claude-code/
 |   |-- instinct-import.md  # /instinct-import - Import instincts (NEW)
 |   |-- instinct-export.md  # /instinct-export - Export instincts (NEW)
 |   |-- evolve.md           # /evolve - Cluster instincts into skills (NEW)
+|   |-- repo-optimize.md          # /repo-optimize - Whole-repo optimization (NEW)
+|   |-- repo-optimize-nextflow.md  # /repo-optimize-nextflow - Nextflow DSL2 optimization (NEW)
 |
 |-- rules/            # Always-follow guidelines (copy to ~/.claude/rules/)
 |   |-- README.md            # Structure overview and installation guide
@@ -584,6 +590,8 @@ OpenCode's plugin system is MORE sophisticated than Claude Code with 20+ event t
 | `/go-test` | Go TDD workflow |
 | `/go-build` | Fix Go build errors |
 | `/skill-create` | Generate skills from git |
+| `/repo-optimize` | Optimize entire repository |
+| `/repo-optimize-nextflow` | Optimize Nextflow DSL2 pipelines |
 | `/instinct-status` | View learned instincts |
 | `/instinct-import` | Import instincts |
 | `/instinct-export` | Export instincts |
