@@ -1,5 +1,5 @@
 ---
-description: Multi-pass Nextflow DSL2 pipeline optimization. Analyzes workflows, subworkflows, modules, and lib/ utilities for channel pattern duplication, embedded script quality, container consistency, meta pattern compliance, and more. Tailored for Nextflow's unique constraints (no linter, no standard test framework, process isolation, channel semantics).
+description: Multi-pass Nextflow DSL2 pipeline optimization. Analyzes workflows, subworkflows, modules, and lib/ utilities for channel pattern duplication, embedded script quality, container consistency, meta pattern compliance, DSL surface area violations, and more. Tailored for Nextflow's unique constraints (no linter, no standard test framework, process isolation, channel semantics).
 ---
 
 # /repo-optimize-nextflow — Nextflow DSL2 Pipeline Optimization
@@ -43,6 +43,7 @@ If no arguments are given, scan the entire working directory with defaults.
 | 12 | **Error strategy gaps** | Resource-intensive processes without `errorStrategy`; missing OOM retry (exit 137-140) |
 | 13 | **Cache-safety violations** | Global var mutation in closures; non-deterministic input pairing; modified input files |
 | 14 | **Input validation gaps** | Missing `checkIfExists`, `ifEmpty`, arity; index-based output access (`out[0]`) |
+| 15 | **DSL surface area violations** | Oversized process scripts, inline Python/Perl, multi-step bash, defensive patterns, build artifacts in orchestration repo |
 
 ## Orchestration Instructions
 
@@ -88,6 +89,18 @@ grep -l "test" conf/*.config 2>/dev/null && echo "test profile found" || echo "n
 grep -r "stub:" --include="*.nf" -l . | wc -l
 total_processes=$(grep -r "^process " --include="*.nf" -l . | wc -l)
 echo "Stub coverage: $stub_files / $total_processes process files"
+
+# Detect thin-orchestration architecture (DSL surface area category)
+if [ -f "CLAUDE.md" ] && grep -qi "thin orchestration\|minimal surface area\|all complex logic" CLAUDE.md 2>/dev/null; then
+    echo "DSL_SURFACE_AREA=enabled"
+else
+    echo "DSL_SURFACE_AREA=disabled"
+fi
+
+# Flag oversized process scripts (>40 lines between """ markers)
+for f in $(grep -rl '^process ' --include='*.nf' .); do
+    awk '/^    script:/,/^    stub:/{if(/"""/){toggle=!toggle; if(!toggle && lines>40) print FILENAME":"NR" ("lines" lines)"; lines=0; next} if(toggle) lines++}' "$f"
+done 2>/dev/null | sort -t'(' -k2 -rn
 ```
 
 ### Step 1: Spawn the Nextflow Optimizer Planner
@@ -108,10 +121,13 @@ Spawn a `nextflow-optimizer-planner` agent (or use the `Plan` agent type) with t
 > - Test profile: {found/not found}
 > - Stub coverage: {N}/{M} process files have stubs
 >
-> Score files across all 14 Nextflow-specific categories (channel duplication, embedded script
+> Score files across all 15 Nextflow-specific categories (channel duplication, embedded script
 > quality, container consistency, meta compliance, directive ordering, error strategies,
-> cache-safety, input validation, etc.), classify as STRUCTURAL or COSMETIC, and group into
-> passes respecting the workflow → subworkflow → module hierarchy.
+> cache-safety, input validation, DSL surface area, etc.), classify as STRUCTURAL or COSMETIC,
+> and group into passes respecting the workflow → subworkflow → module hierarchy.
+>
+> **DSL Surface Area:** {enabled/disabled from Step 0}
+> **Oversized process scripts:** {list from Step 0, if any}
 
 Wait for the planner to return. Parse its output.
 
@@ -154,7 +170,7 @@ For each pass from the planner's output, spawn a **separate** `nextflow-optimize
 > **Target files for this pass:**
 > {LIST_OF_FILES}
 >
-> **Focus areas (prioritize these, but check all 14 Nextflow categories):**
+> **Focus areas (prioritize these, but check all 15 Nextflow categories):**
 > {FOCUS_AREAS}
 >
 > **Planner notes:**
@@ -171,6 +187,10 @@ For each pass from the planner's output, spawn a **separate** `nextflow-optimize
 > - Resource labels: process_single, process_low, process_medium, process_high, process_gpu
 > - Version emission: path "versions.yml", emit: versions
 > - Lib/ auto-loading: {lib files available}
+>
+> **DSL surface area mode:** {enabled/disabled from Step 0}
+> If enabled, flag processes >40 lines (bash) or >100 lines (Python heredoc) that don't
+> delegate to a single CLI. Recommend extraction targets in genomixflux.
 >
 > Read each target file in full, verify usages before removals, apply optimizations
 > following Nextflow-specific guidelines, and return results in the specified format.
@@ -238,6 +258,7 @@ Present a final summary to the user:
 |----------|-------|-------|
 | Channel pattern duplication | {N} | {files} |
 | Embedded script quality | {N} | {files} |
+| DSL surface area violations | {N} | {files} |
 | ...
 
 ### Verification

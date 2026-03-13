@@ -1,6 +1,6 @@
 ---
 name: nextflow-optimizer-planner
-description: Read-only Nextflow DSL2 optimization planner. Analyzes workflows, subworkflows, modules, and lib/ utilities. Scores files on channel pattern duplication, embedded script quality, container consistency, and meta pattern compliance. Produces a structured multi-pass plan for the nextflow-optimizer agent.
+description: Read-only Nextflow DSL2 optimization planner. Analyzes workflows, subworkflows, modules, and lib/ utilities. Scores files on channel pattern duplication, embedded script quality, container consistency, meta pattern compliance, and DSL surface area violations. Produces a structured multi-pass plan for the nextflow-optimizer agent.
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---
 
@@ -86,6 +86,7 @@ These patterns are expected in well-structured Nextflow DSL2 code:
 | 12 | **Error strategy gaps** | Resource-intensive processes without error handling; missing dynamic retry for OOM (exit 137-140) | `process_high` process with no `errorStrategy`; no `maxRetries` on network-dependent steps |
 | 13 | **Cache-safety violations** | Global variable mutation in closures, non-deterministic input merging, modified input files | `channel.map { v -> X=v }` (race condition); parallel tuple inputs without `.join()` |
 | 14 | **Input validation gaps** | Missing `checkIfExists`, `ifEmpty`, arity constraints; index-based output access (`out[0]`) | `channel.fromPath(params.input)` without `checkIfExists: true`; `PROCESS.out[0]` instead of `PROCESS.out.name` |
+| 15 | **DSL surface area violations** | Oversized process scripts (>40 lines), multi-step bash orchestration, inline Python/Perl heredocs, defensive bash patterns, bin/ shell libraries, build artifacts in orchestration repo | 410-line Python heredoc that should be a `pgs-score` CLI; 33-line multi-branch genome build detection that should be `flux detect-build` |
 
 ## Scoring Heuristics
 
@@ -100,6 +101,7 @@ These patterns are expected in well-structured Nextflow DSL2 code:
 | **Cross-file duplication** | 8 | Same process/pattern appearing in multiple files |
 | **Cache-safety risks** | 7 | Global vars in closures, non-deterministic input pairing, modified inputs |
 | **Error/resilience gaps** | 7 | Missing errorStrategy on resource-intensive processes, no dynamic retry scaling |
+| **DSL surface area** | 10 | Process scripts >40 lines (bash) or >100 lines (Python heredoc); multi-step tool chaining; defensive bash (fallback output, multi-branch recovery); bin/ shell scripts; Dockerfiles in orchestration repo. Weight 0 if repo lacks thin-orchestration signals. |
 
 **Score guidance:**
 - 0-29: EXCLUDE — clean, well-structured Nextflow code
@@ -137,6 +139,23 @@ done | sort -rn
 Read each candidate file. For files >200 lines, read in full. For 50-200 line files, full read is fine given Nextflow's compact density.
 
 Score each file using the heuristics table above.
+
+**DSL Surface Area Detection:**
+
+Before scoring, determine if this is a thin-orchestration repo by checking:
+1. CLAUDE.md mentions "thin orchestration", "minimal surface area", or "all complex logic in [external]"
+2. No `modules/` directory (processes inlined in subworkflows)
+3. All processes have `container` directives (no local tool dependencies)
+
+If signals present → apply DSL surface area heuristic at full weight (10).
+If absent → set weight to 0 (skip category entirely).
+
+For each process in a thin-orchestration repo, measure:
+- **Script block line count**: lines between `"""` markers in `script:` block
+  - Bash >40 lines or Python heredoc >100 lines = flag
+- **CLI invocation pattern**: single CLI call = CLEAN; multiple tool calls with data transformation = VIOLATION
+- **Defensive patterns**: fallback output generation, multi-branch error recovery = should be in CLI
+- **bin/ directory**: shell scripts being sourced = should be Python CLI subcommands
 
 ### Step 3: Classify STRUCTURAL vs COSMETIC
 
@@ -185,6 +204,7 @@ Note patterns across the scope:
 - **Dynamic resource scaling**: Processes with `errorStrategy 'retry'` but static `memory`/`time` (should scale with `task.attempt`)
 - **publishDir vs workflow outputs**: If Nextflow >= 25.10, flag `publishDir` usage — can migrate to `publish:` section
 - **Directive ordering**: Scan for processes with directives out of canonical order
+- **DSL surface area audit**: Total embedded script LOC. Flag processes >40 lines (bash) or >100 lines (Python). Note which delegate to a single CLI (CLEAN) vs implement logic directly (VIOLATION). Identify extraction targets in the external CLI repo.
 
 ## Output Format
 

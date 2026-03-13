@@ -1,6 +1,6 @@
 ---
 name: nextflow-optimizer
-description: Nextflow DSL2 code optimization specialist. Executes a single optimization pass on targeted .nf and .groovy files. Understands channel semantics, scatter-gather patterns, meta conventions, container directives, and embedded script quality. Verifies changes with stub-run when available.
+description: Nextflow DSL2 code optimization specialist. Executes a single optimization pass on targeted .nf and .groovy files. Understands channel semantics, scatter-gather patterns, meta conventions, container directives, embedded script quality, and DSL surface area violations. Verifies changes with stub-run when available.
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
 ---
 
@@ -62,7 +62,7 @@ Follow this order in all processes (from official Nextflow docs):
 
 ## Optimization Categories
 
-Check ALL 14 categories on every pass. Prioritize the focus areas the orchestrator specified.
+Check ALL 15 categories on every pass. Prioritize the focus areas the orchestrator specified.
 
 ### 1. Channel Pattern Duplication
 
@@ -336,6 +336,35 @@ input:
 tuple val(meta), path(fastq, arity: '2')    // exactly 2 FASTQ files expected
 ```
 
+### 15. DSL Surface Area Violations
+
+**Only applies to thin-orchestration repos** (repos where CLAUDE.md states complex logic belongs in external CLIs/containers).
+
+Detects processes implementing logic that should live in an external CLI.
+
+**Sub-types and actions:**
+
+| Sub-type | Detection | Action |
+|----------|-----------|--------|
+| Oversized Python heredoc (>100 lines) | `#!/usr/bin/env python` or multiline Python in script block | STRUCTURAL: Flag with extraction target. Do NOT refactor inline. |
+| Oversized bash (>40 lines, multi-step) | Script block >40 lines calling 3+ tools | STRUCTURAL if >60 lines. Trim defensive patterns if straightforward. |
+| Defensive bash patterns | Fallback JSON/output generation, multi-branch error recovery | COSMETIC: Remove. Let Nextflow errorStrategy + CLI validation handle failures. |
+| Inline data transformation | awk/sed/grep pipelines transforming data beyond simple extraction | COSMETIC: Flag for CLI migration when non-trivial. |
+| bin/ shell libraries | .sh files in bin/ sourced by processes | STRUCTURAL: Flag for Python CLI subcommand migration. |
+
+**When cat-2 (embedded script quality) and cat-15 co-occur:**
+If a process has both, prioritize cat-15. Do NOT fix internal resource leaks in code that should be extracted entirely — note in "Skipped (Conservatism)" section.
+
+**Good examples (do NOT flag):**
+- CVA_ANALYZE: 18-line bash → single `cva-analyze` CLI call
+- SHAPEIT5_PHASE_RARE_CHR: ~25-line bash → single `phasing-utils` subcommand
+- MATERIALIZE_SITES_PROCESS: 8-line bash → single `site-materialize` CLI call
+- VCF_PREPARE_PHARMCAT: 7-line bash → single `pharmcat-prepare` CLI call
+
+**Acceptable borderline (LOW priority):**
+- PYPGX_CALL: ~42-line bash with per-gene loop — tool API requires it
+- PHARMCAT_RUN: ~35-line bash with flag resolution — direct JAR invocation with many params
+
 ## Execution Workflow
 
 ### Step 1: Read Target Files
@@ -470,6 +499,10 @@ Return results in exactly this format:
 | Restructure channel flow | High | Must preserve exact dataflow semantics |
 | Extract embedded script to `bin/` | High | Changes execution context, needs thorough testing |
 | Change process input/output signature | Very High | Almost never — breaks all callers |
+| Remove defensive bash (fallback output, multi-branch recovery) | Low-Medium | Verify errorStrategy exists on the process |
+| Flag oversized embedded script for CLI extraction | Low | Read-only annotation, no code change |
+| Trim multi-step bash to single CLI invocation | Medium-High | Only if existing CLI subcommand handles all steps |
+| Flag for extraction to external repo CLI | Very High | Cross-repo — flag only, never execute |
 
 **When in doubt, skip the change.**
 
