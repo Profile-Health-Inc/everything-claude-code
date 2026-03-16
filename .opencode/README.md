@@ -1,21 +1,50 @@
 # OpenCode ECC Plugin
 
+> ⚠️ This README is specific to OpenCode usage.  
+> If you installed ECC via npm (e.g. `npm install opencode-ecc`), refer to the root README instead.
+
 Everything Claude Code (ECC) plugin for OpenCode - agents, commands, hooks, and skills.
 
 ## Installation
 
+## Installation Overview
+
+There are two ways to use Everything Claude Code (ECC):
+
+1. **npm package (recommended for most users)**  
+   Install via npm/bun/yarn and use the `ecc-install` CLI to set up rules and agents.
+
+2. **Direct clone / plugin mode**  
+   Clone the repository and run OpenCode directly inside it.
+
+Choose the method that matches your workflow below.
+
 ### Option 1: npm Package
 
 ```bash
-npm install opencode-ecc
+npm install ecc-universal
 ```
 
 Add to your `opencode.json`:
 
 ```json
 {
-  "plugin": ["opencode-ecc"]
+  "plugin": ["ecc-universal"]
 }
+```
+
+This loads the ECC OpenCode plugin module from npm:
+- hook/event integrations
+- bundled custom tools exported by the plugin
+
+It does **not** auto-register the full ECC command/agent/instruction catalog in your project config. For the full OpenCode setup, either:
+- run OpenCode inside this repository, or
+- copy the relevant `.opencode/commands/`, `.opencode/prompts/`, `.opencode/instructions/`, and the `instructions`, `agent`, and `command` config entries into your own project
+
+After installation, the `ecc-install` CLI is also available:
+
+```bash
+npx ecc-install typescript
 ```
 
 ### Option 2: Direct Use
@@ -47,7 +76,7 @@ opencode
 | go-build-resolver | Go build errors |
 | database-reviewer | Database optimization |
 
-### Commands (24)
+### Commands (31)
 
 | Command | Description |
 |---------|-------------|
@@ -75,6 +104,13 @@ opencode
 | `/instinct-import` | Import instincts |
 | `/instinct-export` | Export instincts |
 | `/evolve` | Cluster instincts |
+| `/promote` | Promote project instincts |
+| `/projects` | List known projects |
+| `/harness-audit` | Audit harness reliability and eval readiness |
+| `/loop-start` | Start controlled agentic loops |
+| `/loop-status` | Check loop state and checkpoints |
+| `/quality-gate` | Run quality gates on file/repo scope |
+| `/model-route` | Route tasks by model and budget |
 
 ### Plugin Hooks
 
@@ -108,25 +144,41 @@ OpenCode's plugin system maps to Claude Code hooks:
 
 OpenCode has 20+ additional events not available in Claude Code.
 
+### Hook Runtime Controls
+
+OpenCode plugin hooks honor the same runtime controls used by Claude Code/Cursor:
+
+```bash
+export ECC_HOOK_PROFILE=standard
+export ECC_DISABLED_HOOKS="pre:bash:tmux-reminder,post:edit:typecheck"
+```
+
+- `ECC_HOOK_PROFILE`: `minimal`, `standard` (default), `strict`
+- `ECC_DISABLED_HOOKS`: comma-separated hook IDs to disable
+
 ## Skills
 
-All 16 ECC skills are available via the `instructions` array:
+The default OpenCode config loads 11 curated ECC skills via the `instructions` array:
 
 - coding-standards
 - backend-patterns
 - frontend-patterns
+- frontend-slides
 - security-review
 - tdd-workflow
-- continuous-learning
-- continuous-learning-v2
-- iterative-retrieval
 - strategic-compact
 - eval-harness
 - verification-loop
-- golang-patterns
-- golang-testing
-- clickhouse-io
-- pmx-guidelines
+- api-design
+- e2e-testing
+
+Additional specialized skills are shipped in `skills/` but not loaded by default to keep OpenCode sessions lean:
+
+- article-writing
+- content-engine
+- market-research
+- investor-materials
+- investor-outreach
 
 ## Configuration
 
@@ -137,7 +189,7 @@ Full configuration in `opencode.json`:
   "$schema": "https://opencode.ai/config.json",
   "model": "anthropic/claude-sonnet-4-5",
   "small_model": "anthropic/claude-haiku-4-5",
-  "plugin": ["./.opencode/plugins"],
+  "plugin": ["./plugins"],
   "instructions": [
     "skills/tdd-workflow/SKILL.md",
     "skills/security-review/SKILL.md"

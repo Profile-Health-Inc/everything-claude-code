@@ -2,13 +2,20 @@
 
 This is the [Profile Health](https://github.com/Profile-Health-Inc) fork of [everything-claude-code](https://github.com/affaan-m/everything-claude-code). It includes custom agents and commands built for our team on top of the upstream ECC plugin.
 
-## What's Added
+## What's Added (on top of upstream v1.8.0)
 
 | Type | Name | Description |
 |------|------|-------------|
 | Agent | `optimizer-planner` | Read-only agent that analyzes `git diff HEAD~1` and produces a multi-pass optimization plan |
 | Agent | `optimizer` | Read-write agent that executes a single optimization pass across 8 categories |
+| Agent | `repo-optimizer-planner` | Read-only repo-wide analysis with per-file quality findings and history-aware scoring |
+| Agent | `repo-optimizer` | Read-write repo-wide optimization with before/after quality reporting per file |
+| Agent | `nextflow-optimizer-planner` | Read-only Nextflow DSL2 optimization planner (channel patterns, containers, meta compliance) |
+| Agent | `nextflow-optimizer` | Read-write Nextflow DSL2 optimizer for workflows, subworkflows, and modules |
+| Agent | `repo-test-writer` | Generates targeted tests for under-tested code paths |
 | Command | `/optimize` | Multi-pass code optimization for changes from the last commit |
+| Command | `/repo-optimize` | Repo-wide multi-pass optimization with persistent history |
+| Command | `/repo-optimize-nextflow` | Nextflow DSL2 pipeline optimization across 14 categories |
 
 ## Installation
 
@@ -86,10 +93,10 @@ Then restart Claude Code.
 To pull in updates from the original ECC repo:
 
 ```bash
-cd ~/work/profile_health/everything-claude-code
-git remote add upstream https://github.com/affaan-m/everything-claude-code.git
+cd ~/.claude/plugins/marketplaces/everything-claude-code
+git remote add upstream https://github.com/affaan-m/everything-claude-code.git  # if not already added
 git fetch upstream
-git merge upstream/main
-# Resolve any conflicts, then push
-git push origin main
+git rebase upstream/main  # rebase custom commits on top of latest upstream
+# Resolve any conflicts, then force-push the feat branch
+git push origin HEAD:feat/repo-optimize-commands --force-with-lease
 ```

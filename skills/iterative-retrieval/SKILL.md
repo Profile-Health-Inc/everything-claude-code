@@ -1,11 +1,20 @@
 ---
 name: iterative-retrieval
 description: Pattern for progressively refining context retrieval to solve the subagent context problem
+origin: ECC
 ---
 
 # Iterative Retrieval Pattern
 
 Solves the "context problem" in multi-agent workflows where subagents don't know what context they need until they start working.
+
+## When to Activate
+
+- Spawning subagents that need codebase context they cannot predict upfront
+- Building multi-agent workflows where context is progressively refined
+- Encountering "context too large" or "missing context" failures in agent tasks
+- Designing RAG-like retrieval pipelines for code exploration
+- Optimizing token usage in agent orchestration
 
 ## The Problem
 
@@ -199,4 +208,4 @@ When retrieving context for this task:
 
 - [The Longform Guide](https://x.com/affaanmustafa/status/2014040193557471352) - Subagent orchestration section
 - `continuous-learning` skill - For patterns that improve over time
-- Agent definitions in `~/.claude/agents/`
+- Agent definitions bundled with ECC (manual install path: `agents/`)
